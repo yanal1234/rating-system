@@ -5,6 +5,9 @@ const {
   toggleLabelStatus: toggleLabelStatusService,
 } = require("../services/label.service");
 
+// Validate positive numeric IDs without converting to Number
+const isValidId = (id) => /^[1-9]\d*$/.test(String(id));
+
 // Get all labels
 const getAllLabels = async (req, res) => {
   try {
@@ -28,21 +31,33 @@ const createLabel = async (req, res) => {
   try {
     const { label_name, description } = req.body;
 
-    if (!label_name || !label_name.trim()) {
+    if (typeof label_name !== "string" || !label_name.trim()) {
       return res.status(400).json({
         message: "Label name is required",
       });
     }
 
-    if (label_name.trim().length > 100) {
+    const trimmedName = label_name.trim();
+
+    if (trimmedName.length > 100) {
       return res.status(400).json({
         message: "Label name cannot exceed 100 characters",
       });
     }
 
+    if (
+      description !== undefined &&
+      description !== null &&
+      typeof description !== "string"
+    ) {
+      return res.status(400).json({
+        message: "Description must be a string",
+      });
+    }
+
     const label_id = await createLabelService(
-      label_name.trim(),
-      description?.trim() || null,
+      trimmedName,
+      typeof description === "string" ? description.trim() || null : null,
       req.user.user_id,
     );
 
@@ -71,22 +86,40 @@ const updateLabel = async (req, res) => {
     const { id } = req.params;
     const { label_name, description } = req.body;
 
-    if (!label_name || !label_name.trim()) {
+    if (!isValidId(id)) {
+      return res.status(400).json({
+        message: "Invalid label ID",
+      });
+    }
+
+    if (typeof label_name !== "string" || !label_name.trim()) {
       return res.status(400).json({
         message: "Label name is required",
       });
     }
 
-    if (label_name.trim().length > 100) {
+    const trimmedName = label_name.trim();
+
+    if (trimmedName.length > 100) {
       return res.status(400).json({
         message: "Label name cannot exceed 100 characters",
       });
     }
 
+    if (
+      description !== undefined &&
+      description !== null &&
+      typeof description !== "string"
+    ) {
+      return res.status(400).json({
+        message: "Description must be a string",
+      });
+    }
+
     const updated = await updateLabelService(
       id,
-      label_name.trim(),
-      description?.trim() || null,
+      trimmedName,
+      typeof description === "string" ? description.trim() || null : null,
     );
 
     if (!updated) {
@@ -118,6 +151,12 @@ const toggleLabelStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { is_active } = req.body;
+
+    if (!isValidId(id)) {
+      return res.status(400).json({
+        message: "Invalid label ID",
+      });
+    }
 
     if (![0, 1, true, false].includes(is_active)) {
       return res.status(400).json({

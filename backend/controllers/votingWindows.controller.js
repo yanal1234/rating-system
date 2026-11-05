@@ -6,6 +6,10 @@ const {
   deleteVotingWindow: deleteVotingWindowService,
 } = require("../services/votingWindow.service");
 
+const isValidId = (id) => Number.isInteger(Number(id)) && Number(id) > 0;
+
+const isValidDate = (value) => value && !Number.isNaN(Date.parse(value));
+
 // Create voting window (Staff only)
 const createVotingWindow = async (req, res) => {
   try {
@@ -17,15 +21,20 @@ const createVotingWindow = async (req, res) => {
       max_votes = 5,
     } = req.body;
 
-    if (!window_name || !starts_at || !ends_at) {
+    if (
+      typeof window_name !== "string" ||
+      !window_name.trim() ||
+      !starts_at ||
+      !ends_at
+    ) {
       return res.status(400).json({
         message: "Window name, start date and end date are required",
       });
     }
 
     if (
-      isNaN(Date.parse(starts_at)) ||
-      isNaN(Date.parse(ends_at)) ||
+      !isValidDate(starts_at) ||
+      !isValidDate(ends_at) ||
       new Date(ends_at) <= new Date(starts_at)
     ) {
       return res.status(400).json({
@@ -45,7 +54,7 @@ const createVotingWindow = async (req, res) => {
     }
 
     const window_id = await createVotingWindowService({
-      window_name,
+      window_name: window_name.trim(),
       starts_at,
       ends_at,
       min_votes: Number(min_votes),
@@ -89,7 +98,7 @@ const getVotingWindowById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    if (!Number.isInteger(Number(id)) || Number(id) <= 0) {
+    if (!isValidId(id)) {
       return res.status(400).json({
         message: "Invalid voting window ID",
       });
@@ -123,7 +132,7 @@ const updateVotingWindow = async (req, res) => {
     const { window_name, starts_at, ends_at, min_votes, max_votes, status } =
       req.body;
 
-    if (!Number.isInteger(Number(id)) || Number(id) <= 0) {
+    if (!isValidId(id)) {
       return res.status(400).json({
         message: "Invalid voting window ID",
       });
@@ -147,9 +156,10 @@ const updateVotingWindow = async (req, res) => {
     };
 
     if (
-      !updated.window_name ||
-      isNaN(Date.parse(updated.starts_at)) ||
-      isNaN(Date.parse(updated.ends_at)) ||
+      typeof updated.window_name !== "string" ||
+      !updated.window_name.trim() ||
+      !isValidDate(updated.starts_at) ||
+      !isValidDate(updated.ends_at) ||
       new Date(updated.ends_at) <= new Date(updated.starts_at)
     ) {
       return res.status(400).json({
@@ -176,6 +186,7 @@ const updateVotingWindow = async (req, res) => {
 
     await updateVotingWindowService(Number(id), {
       ...updated,
+      window_name: updated.window_name.trim(),
       min_votes: Number(updated.min_votes),
       max_votes: Number(updated.max_votes),
     });
@@ -185,6 +196,12 @@ const updateVotingWindow = async (req, res) => {
     });
   } catch (error) {
     console.error("Update voting window error:", error);
+
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        message: error.message,
+      });
+    }
 
     return res.status(500).json({
       message: "Failed to update voting window",
@@ -197,7 +214,7 @@ const deleteVotingWindow = async (req, res) => {
   try {
     const { id } = req.params;
 
-    if (!Number.isInteger(Number(id)) || Number(id) <= 0) {
+    if (!isValidId(id)) {
       return res.status(400).json({
         message: "Invalid voting window ID",
       });
@@ -215,14 +232,20 @@ const deleteVotingWindow = async (req, res) => {
       message: "Voting window deleted successfully",
     });
   } catch (error) {
+    console.error("Delete voting window error:", error);
+
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        message: error.message,
+      });
+    }
+
     if (error.code === "ER_ROW_IS_REFERENCED_2") {
       return res.status(409).json({
         message:
           "Cannot delete this voting window because it is linked to other records",
       });
     }
-
-    console.error("Delete voting window error:", error);
 
     return res.status(500).json({
       message: "Failed to delete voting window",

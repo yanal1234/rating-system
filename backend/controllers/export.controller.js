@@ -5,15 +5,13 @@ const exportRatings = async (req, res) => {
   try {
     const { window_id } = req.params;
 
-    // Validate window ID
-    if (!/^\d+$/.test(window_id) || Number(window_id) < 1) {
+    if (!/^[1-9]\d*$/.test(String(window_id))) {
       return res.status(400).json({
         message: "Invalid voting window ID",
       });
     }
 
-    // Generate CSV file
-    const result = await exportWindowRatings(Number(window_id));
+    const result = await exportWindowRatings(window_id);
 
     if (!result) {
       return res.status(404).json({
@@ -21,7 +19,6 @@ const exportRatings = async (req, res) => {
       });
     }
 
-    // Send CSV file for download
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
 
     res.setHeader(
@@ -33,8 +30,9 @@ const exportRatings = async (req, res) => {
   } catch (error) {
     console.error("Export ratings error:", error);
 
-    return res.status(500).json({
-      message: "Failed to export ratings",
+    return res.status(error.statusCode || 500).json({
+      message:
+        error.statusCode === 400 ? error.message : "Failed to export ratings",
     });
   }
 };

@@ -1,6 +1,6 @@
 const db = require("../config/db");
 
-// Get all audit logs
+// Get all audit logs (Staff only)
 const getAuditLogs = async (req, res) => {
   try {
     const [logs] = await db.query(
@@ -23,16 +23,24 @@ const getAuditLogs = async (req, res) => {
       logs,
     });
   } catch (error) {
+    console.error("Get audit logs error:", error);
+
     return res.status(500).json({
       message: "Failed to retrieve audit logs",
     });
   }
 };
 
-// Get audit logs for a specific rating
+// Get audit logs for a specific rating (Staff only)
 const getRatingAuditLogs = async (req, res) => {
   try {
     const { rating_id } = req.params;
+
+    if (!/^[1-9]\d*$/.test(rating_id)) {
+      return res.status(400).json({
+        message: "Invalid rating ID",
+      });
+    }
 
     const [logs] = await db.query(
       `SELECT
@@ -56,6 +64,8 @@ const getRatingAuditLogs = async (req, res) => {
       logs,
     });
   } catch (error) {
+    console.error("Get rating audit logs error:", error);
+
     return res.status(500).json({
       message: "Failed to retrieve rating audit logs",
     });
