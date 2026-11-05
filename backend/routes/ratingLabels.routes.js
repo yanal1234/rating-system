@@ -6,9 +6,9 @@ const {
   getRatingLabels,
 } = require("../controllers/ratingLabels.controller");
 
-const { verifyToken } = require("../middleware/auth.middleware");
+const { verifyToken, verifyStaff } = require("../middleware/auth.middleware");
 
 router.post("/", verifyToken, addRatingLabels);
-router.get("/:rating_id", verifyToken, getRatingLabels);
+router.get("/:rating_id", verifyToken, verifyStaff, getRatingLabels);
 
 module.exports = router;
