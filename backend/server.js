@@ -13,6 +13,8 @@ const labelStarLevelsRoutes = require("./routes/labelStarLevels.routes");
 const ratingLabelsRoutes = require("./routes/ratingLabels.routes");
 const auditLogsRoutes = require("./routes/auditLogs.routes");
 const suspiciousActivitiesRoutes = require("./routes/suspiciousActivities.routes");
+const analyticsRoutes = require("./routes/analytics.routes");
+const exportRoutes = require("./routes/export.routes");
 
 const app = express();
 
@@ -36,6 +38,8 @@ app.use("/api/label-star-levels", labelStarLevelsRoutes);
 app.use("/api/rating-labels", ratingLabelsRoutes);
 app.use("/api/audit-logs", auditLogsRoutes);
 app.use("/api/suspicious-activities", suspiciousActivitiesRoutes);
+app.use("/api/analytics", analyticsRoutes);
+app.use("/api/export", exportRoutes);
 
 const PORT = process.env.PORT || 5000;
 

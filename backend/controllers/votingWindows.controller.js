@@ -1,4 +1,10 @@
-const db = require("../config/db");
+const {
+  createVotingWindow: createVotingWindowService,
+  getAllVotingWindows: getAllVotingWindowsService,
+  getVotingWindowById: getVotingWindowByIdService,
+  updateVotingWindow: updateVotingWindowService,
+  deleteVotingWindow: deleteVotingWindowService,
+} = require("../services/votingWindow.service");
 
 // Create voting window (Staff only)
 const createVotingWindow = async (req, res) => {
@@ -7,7 +13,7 @@ const createVotingWindow = async (req, res) => {
       window_name,
       starts_at,
       ends_at,
-      min_votes = 0,
+      min_votes = 1,
       max_votes = 5,
     } = req.body;
 
@@ -38,21 +44,24 @@ const createVotingWindow = async (req, res) => {
       });
     }
 
-    const [result] = await db.query(
-      `INSERT INTO voting_windows
-       (window_name, starts_at, ends_at, min_votes, max_votes, created_by)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [window_name, starts_at, ends_at, min_votes, max_votes, req.user.user_id],
-    );
+    const window_id = await createVotingWindowService({
+      window_name,
+      starts_at,
+      ends_at,
+      min_votes: Number(min_votes),
+      max_votes: Number(max_votes),
+      created_by: req.user.user_id,
+    });
 
     return res.status(201).json({
       message: "Voting window created successfully",
-      window_id: result.insertId,
+      window_id,
     });
   } catch (error) {
+    console.error("Create voting window error:", error);
+
     return res.status(500).json({
       message: "Failed to create voting window",
-      error: error.message,
     });
   }
 };
@@ -60,20 +69,17 @@ const createVotingWindow = async (req, res) => {
 // Get all voting windows (Staff only)
 const getAllVotingWindows = async (req, res) => {
   try {
-    const [windows] = await db.query(
-      `SELECT *
-       FROM voting_windows
-       ORDER BY starts_at DESC`,
-    );
+    const windows = await getAllVotingWindowsService();
 
     return res.status(200).json({
       message: "Voting windows retrieved successfully",
       windows,
     });
   } catch (error) {
+    console.error("Get all voting windows error:", error);
+
     return res.status(500).json({
       message: "Failed to retrieve voting windows",
-      error: error.message,
     });
   }
 };
@@ -89,14 +95,9 @@ const getVotingWindowById = async (req, res) => {
       });
     }
 
-    const [windows] = await db.query(
-      `SELECT *
-       FROM voting_windows
-       WHERE window_id = ?`,
-      [id],
-    );
+    const window = await getVotingWindowByIdService(Number(id));
 
-    if (windows.length === 0) {
+    if (!window) {
       return res.status(404).json({
         message: "Voting window not found",
       });
@@ -104,12 +105,13 @@ const getVotingWindowById = async (req, res) => {
 
     return res.status(200).json({
       message: "Voting window retrieved successfully",
-      window: windows[0],
+      window,
     });
   } catch (error) {
+    console.error("Get voting window error:", error);
+
     return res.status(500).json({
       message: "Failed to retrieve voting window",
-      error: error.message,
     });
   }
 };
@@ -127,18 +129,13 @@ const updateVotingWindow = async (req, res) => {
       });
     }
 
-    const [windows] = await db.query(
-      "SELECT * FROM voting_windows WHERE window_id = ?",
-      [id],
-    );
+    const current = await getVotingWindowByIdService(Number(id));
 
-    if (windows.length === 0) {
+    if (!current) {
       return res.status(404).json({
         message: "Voting window not found",
       });
     }
-
-    const current = windows[0];
 
     const updated = {
       window_name: window_name ?? current.window_name,
@@ -177,33 +174,20 @@ const updateVotingWindow = async (req, res) => {
       });
     }
 
-    await db.query(
-      `UPDATE voting_windows
-       SET window_name = ?,
-           starts_at = ?,
-           ends_at = ?,
-           min_votes = ?,
-           max_votes = ?,
-           status = ?
-       WHERE window_id = ?`,
-      [
-        updated.window_name,
-        updated.starts_at,
-        updated.ends_at,
-        updated.min_votes,
-        updated.max_votes,
-        updated.status,
-        id,
-      ],
-    );
+    await updateVotingWindowService(Number(id), {
+      ...updated,
+      min_votes: Number(updated.min_votes),
+      max_votes: Number(updated.max_votes),
+    });
 
     return res.status(200).json({
       message: "Voting window updated successfully",
     });
   } catch (error) {
+    console.error("Update voting window error:", error);
+
     return res.status(500).json({
       message: "Failed to update voting window",
-      error: error.message,
     });
   }
 };
@@ -219,12 +203,9 @@ const deleteVotingWindow = async (req, res) => {
       });
     }
 
-    const [result] = await db.query(
-      "DELETE FROM voting_windows WHERE window_id = ?",
-      [id],
-    );
+    const affectedRows = await deleteVotingWindowService(Number(id));
 
-    if (result.affectedRows === 0) {
+    if (affectedRows === 0) {
       return res.status(404).json({
         message: "Voting window not found",
       });
@@ -241,9 +222,10 @@ const deleteVotingWindow = async (req, res) => {
       });
     }
 
+    console.error("Delete voting window error:", error);
+
     return res.status(500).json({
       message: "Failed to delete voting window",
-      error: error.message,
     });
   }
 };

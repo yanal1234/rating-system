@@ -1,19 +1,22 @@
-const db = require("../config/db");
+const {
+  getAllLabels: getAllLabelsService,
+  createLabel: createLabelService,
+  updateLabel: updateLabelService,
+  toggleLabelStatus: toggleLabelStatusService,
+} = require("../services/label.service");
 
 // Get all labels
 const getAllLabels = async (req, res) => {
   try {
-    const [labels] = await db.query(
-      `SELECT label_id, label_name, description, is_active, created_at
-       FROM labels
-       ORDER BY label_name ASC`,
-    );
+    const labels = await getAllLabelsService();
 
     return res.status(200).json({
       message: "Labels retrieved successfully",
       labels,
     });
   } catch (error) {
+    console.error("Get all labels error:", error);
+
     return res.status(500).json({
       message: "Failed to retrieve labels",
     });
@@ -37,15 +40,15 @@ const createLabel = async (req, res) => {
       });
     }
 
-    const [result] = await db.query(
-      `INSERT INTO labels (label_name, description, created_by)
-       VALUES (?, ?, ?)`,
-      [label_name.trim(), description?.trim() || null, req.user.user_id],
+    const label_id = await createLabelService(
+      label_name.trim(),
+      description?.trim() || null,
+      req.user.user_id,
     );
 
     return res.status(201).json({
       message: "Label created successfully",
-      label_id: result.insertId,
+      label_id,
     });
   } catch (error) {
     if (error.code === "ER_DUP_ENTRY") {
@@ -53,6 +56,8 @@ const createLabel = async (req, res) => {
         message: "Label name already exists",
       });
     }
+
+    console.error("Create label error:", error);
 
     return res.status(500).json({
       message: "Failed to create label",
@@ -78,24 +83,16 @@ const updateLabel = async (req, res) => {
       });
     }
 
-    const [result] = await db.query(
-      `UPDATE labels
-       SET label_name = ?, description = ?
-       WHERE label_id = ?`,
-      [label_name.trim(), description?.trim() || null, id],
+    const updated = await updateLabelService(
+      id,
+      label_name.trim(),
+      description?.trim() || null,
     );
 
-    if (result.affectedRows === 0) {
-      const [labels] = await db.query(
-        "SELECT label_id FROM labels WHERE label_id = ?",
-        [id],
-      );
-
-      if (labels.length === 0) {
-        return res.status(404).json({
-          message: "Label not found",
-        });
-      }
+    if (!updated) {
+      return res.status(404).json({
+        message: "Label not found",
+      });
     }
 
     return res.status(200).json({
@@ -107,6 +104,8 @@ const updateLabel = async (req, res) => {
         message: "Label name already exists",
       });
     }
+
+    console.error("Update label error:", error);
 
     return res.status(500).json({
       message: "Failed to update label",
@@ -126,30 +125,20 @@ const toggleLabelStatus = async (req, res) => {
       });
     }
 
-    const [result] = await db.query(
-      `UPDATE labels
-       SET is_active = ?
-       WHERE label_id = ?`,
-      [Number(is_active), id],
-    );
+    const updated = await toggleLabelStatusService(id, Number(is_active));
 
-    if (result.affectedRows === 0) {
-      const [labels] = await db.query(
-        "SELECT label_id FROM labels WHERE label_id = ?",
-        [id],
-      );
-
-      if (labels.length === 0) {
-        return res.status(404).json({
-          message: "Label not found",
-        });
-      }
+    if (!updated) {
+      return res.status(404).json({
+        message: "Label not found",
+      });
     }
 
     return res.status(200).json({
       message: "Label status updated successfully",
     });
   } catch (error) {
+    console.error("Toggle label status error:", error);
+
     return res.status(500).json({
       message: "Failed to update label status",
     });

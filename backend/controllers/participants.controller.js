@@ -1,4 +1,8 @@
-const db = require("../config/db");
+const {
+  addParticipant: addParticipantService,
+  getParticipants: getParticipantsService,
+  removeParticipant: removeParticipantService,
+} = require("../services/participant.service");
 
 // Add participant
 const addParticipant = async (req, res) => {
@@ -11,11 +15,18 @@ const addParticipant = async (req, res) => {
       });
     }
 
-    const [result] = await db.query(
-      `INSERT INTO rating_participants (window_id, user_id)
-       VALUES (?, ?)`,
-      [window_id, user_id],
-    );
+    if (
+      !Number.isInteger(Number(window_id)) ||
+      Number(window_id) <= 0 ||
+      !Number.isInteger(Number(user_id)) ||
+      Number(user_id) <= 0
+    ) {
+      return res.status(400).json({
+        message: "Invalid window ID or user ID",
+      });
+    }
+
+    await addParticipantService(Number(window_id), Number(user_id));
 
     return res.status(201).json({
       message: "Participant added successfully",
@@ -33,31 +44,34 @@ const addParticipant = async (req, res) => {
       });
     }
 
+    console.error("Add participant error:", error);
+
     return res.status(500).json({
       message: "Failed to add participant",
     });
   }
 };
 
-// Get participants in a voting window
+// Get participants
 const getParticipants = async (req, res) => {
   try {
     const { window_id } = req.params;
 
-    const [participants] = await db.query(
-      `SELECT u.user_id, u.username, rp.joined_at
-       FROM rating_participants rp
-       JOIN users u ON rp.user_id = u.user_id
-       WHERE rp.window_id = ?
-       ORDER BY rp.joined_at ASC`,
-      [window_id],
-    );
+    if (!/^\d+$/.test(window_id) || Number(window_id) <= 0) {
+      return res.status(400).json({
+        message: "Invalid voting window ID",
+      });
+    }
+
+    const participants = await getParticipantsService(Number(window_id));
 
     return res.status(200).json({
       message: "Participants retrieved successfully",
       participants,
     });
   } catch (error) {
+    console.error("Get participants error:", error);
+
     return res.status(500).json({
       message: "Failed to retrieve participants",
     });
@@ -69,13 +83,23 @@ const removeParticipant = async (req, res) => {
   try {
     const { window_id, user_id } = req.params;
 
-    const [result] = await db.query(
-      `DELETE FROM rating_participants
-       WHERE window_id = ? AND user_id = ?`,
-      [window_id, user_id],
+    if (
+      !/^\d+$/.test(window_id) ||
+      Number(window_id) <= 0 ||
+      !/^\d+$/.test(user_id) ||
+      Number(user_id) <= 0
+    ) {
+      return res.status(400).json({
+        message: "Invalid window ID or user ID",
+      });
+    }
+
+    const affectedRows = await removeParticipantService(
+      Number(window_id),
+      Number(user_id),
     );
 
-    if (result.affectedRows === 0) {
+    if (affectedRows === 0) {
       return res.status(404).json({
         message: "Participant not found",
       });
@@ -85,6 +109,8 @@ const removeParticipant = async (req, res) => {
       message: "Participant removed successfully",
     });
   } catch (error) {
+    console.error("Remove participant error:", error);
+
     return res.status(500).json({
       message: "Failed to remove participant",
     });
