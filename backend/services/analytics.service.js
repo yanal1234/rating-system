@@ -1,14 +1,21 @@
 const db = require("../config/db");
 
+// Only ratings that currently have mathematical influence
+const EFFECTIVE_RATING_CONDITION = `
+  r.status = 'valid'
+  AND r.moderation_status NOT IN ('under_review', 'confirmed_abuse')
+  AND r.weight > 0
+`;
+
 // Get general system analytics
 const getSystemAnalytics = async () => {
   // Voting windows statistics
   const [windows] = await db.query(`
     SELECT
       COUNT(*) AS total_windows,
-      SUM(status = 'published') AS published_windows,
-      SUM(status = 'draft') AS draft_windows,
-      SUM(status = 'cancelled') AS cancelled_windows
+      COALESCE(SUM(status = 'published'), 0) AS published_windows,
+      COALESCE(SUM(status = 'draft'), 0) AS draft_windows,
+      COALESCE(SUM(status = 'cancelled'), 0) AS cancelled_windows
     FROM voting_windows
   `);
 
@@ -22,16 +29,41 @@ const getSystemAnalytics = async () => {
   const [ratings] = await db.query(`
     SELECT
       COUNT(*) AS total_ratings,
-      SUM(status = 'valid') AS valid_ratings,
-      SUM(status = 'invalid') AS invalid_ratings,
+      COALESCE(SUM(status = 'valid'), 0) AS valid_ratings,
+      COALESCE(SUM(status = 'invalid'), 0) AS invalid_ratings,
+
+      SUM(
+        CASE
+          WHEN ${EFFECTIVE_RATING_CONDITION} THEN 1
+          ELSE 0
+        END
+      ) AS effective_ratings,
+
       ROUND(
-        AVG(CASE WHEN status = 'valid' THEN stars END),
+        SUM(
+          CASE
+            WHEN ${EFFECTIVE_RATING_CONDITION}
+            THEN stars * weight
+            ELSE 0
+          END
+        ) /
+        NULLIF(
+          SUM(
+            CASE
+              WHEN ${EFFECTIVE_RATING_CONDITION}
+              THEN weight
+              ELSE 0
+            END
+          ),
+          0
+        ),
         2
       ) AS average_stars
-    FROM ratings
+
+    FROM ratings r
   `);
 
-  // Most used labels
+  // Most used labels in effective ratings
   const [topLabels] = await db.query(`
     SELECT
       l.label_id,
@@ -40,7 +72,7 @@ const getSystemAnalytics = async () => {
     FROM rating_labels rl
     JOIN ratings r ON r.rating_id = rl.rating_id
     JOIN labels l ON l.label_id = rl.label_id
-    WHERE r.status = 'valid'
+    WHERE ${EFFECTIVE_RATING_CONDITION}
     GROUP BY l.label_id, l.label_name
     ORDER BY usage_count DESC
     LIMIT 10
@@ -80,44 +112,79 @@ const getWindowAnalytics = async (window_id) => {
   const [ratings] = await db.query(
     `SELECT
        COUNT(*) AS total_ratings,
-       SUM(status = 'valid') AS valid_ratings,
-       SUM(status = 'invalid') AS invalid_ratings,
+       COALESCE(SUM(status = 'valid'), 0) AS valid_ratings,
+       COALESCE(SUM(status = 'invalid'), 0) AS invalid_ratings,
+
+       SUM(
+         CASE
+           WHEN ${EFFECTIVE_RATING_CONDITION} THEN 1
+           ELSE 0
+         END
+       ) AS effective_ratings,
+
        ROUND(
-         AVG(CASE WHEN status = 'valid' THEN stars END),
+         SUM(
+           CASE
+             WHEN ${EFFECTIVE_RATING_CONDITION}
+             THEN stars * weight
+             ELSE 0
+           END
+         ) /
+         NULLIF(
+           SUM(
+             CASE
+               WHEN ${EFFECTIVE_RATING_CONDITION}
+               THEN weight
+               ELSE 0
+             END
+           ),
+           0
+         ),
          2
        ) AS average_stars
-     FROM ratings
-     WHERE window_id = ?`,
+
+     FROM ratings r
+     WHERE r.window_id = ?`,
     [window_id],
   );
 
-  // Most rated users
+  // Most rated users by weighted average
   const [topRatedUsers] = await db.query(
     `SELECT
        u.user_id,
        u.username,
        COUNT(r.rating_id) AS received_ratings,
-       ROUND(AVG(r.stars), 2) AS average_stars
+
+       ROUND(
+         SUM(r.stars * r.weight) / NULLIF(SUM(r.weight), 0),
+         2
+       ) AS average_stars
+
      FROM ratings r
      JOIN users u ON u.user_id = r.rated_user_id
+
      WHERE r.window_id = ?
-       AND r.status = 'valid'
+       AND ${EFFECTIVE_RATING_CONDITION}
+
      GROUP BY u.user_id, u.username
      ORDER BY average_stars DESC, received_ratings DESC`,
     [window_id],
   );
 
-  // Most used labels in this window
+  // Most used labels in effective ratings
   const [topLabels] = await db.query(
     `SELECT
        l.label_id,
        l.label_name,
        COUNT(*) AS usage_count
+
      FROM rating_labels rl
      JOIN ratings r ON r.rating_id = rl.rating_id
      JOIN labels l ON l.label_id = rl.label_id
+
      WHERE r.window_id = ?
-       AND r.status = 'valid'
+       AND ${EFFECTIVE_RATING_CONDITION}
+
      GROUP BY l.label_id, l.label_name
      ORDER BY usage_count DESC
      LIMIT 10`,

@@ -1,7 +1,29 @@
 const db = require("../config/db");
 
+// Escape CSV values and protect against CSV Formula Injection
+const escapeCSV = (value) => {
+  if (value === null || value === undefined) {
+    return '""';
+  }
+
+  let text = String(value);
+
+  // Prevent Excel from interpreting text as a formula
+  if (/^[\s]*[=+\-@]/.test(text)) {
+    text = `'${text}`;
+  }
+
+  return `"${text.replace(/"/g, '""')}"`;
+};
+
 // Export ratings for a specific voting window as CSV
 const exportWindowRatings = async (window_id) => {
+  if (!/^[1-9]\d*$/.test(String(window_id))) {
+    const error = new Error("Invalid voting window ID");
+    error.statusCode = 400;
+    throw error;
+  }
+
   // Check if voting window exists
   const [windows] = await db.query(
     `SELECT window_id, window_name
@@ -14,7 +36,7 @@ const exportWindowRatings = async (window_id) => {
     return null;
   }
 
-  // Get ratings data
+  // Get all ratings, including moderation information for staff auditing
   const [ratings] = await db.query(
     `SELECT
        r.rating_id,
@@ -23,12 +45,26 @@ const exportWindowRatings = async (window_id) => {
        rated.username AS rated_username,
        r.stars,
        r.status,
+       r.moderation_status,
+       r.weight,
+
+       CASE
+         WHEN r.status = 'valid'
+          AND r.moderation_status NOT IN ('under_review', 'confirmed_abuse')
+          AND r.weight > 0
+         THEN 1
+         ELSE 0
+       END AS is_effective,
+
        r.invalidation_reason,
-       r.invalidated_at
+       r.invalidated_at,
+       r.created_at
+
      FROM ratings r
      JOIN voting_windows vw ON vw.window_id = r.window_id
      JOIN users voter ON voter.user_id = r.voter_id
      JOIN users rated ON rated.user_id = r.rated_user_id
+
      WHERE r.window_id = ?
      ORDER BY r.rating_id ASC`,
     [window_id],
@@ -42,19 +78,13 @@ const exportWindowRatings = async (window_id) => {
     "Rated User",
     "Stars",
     "Status",
+    "Moderation Status",
+    "Weight",
+    "Effective",
     "Invalidation Reason",
     "Invalidated At",
+    "Created At",
   ];
-
-  // Escape CSV values
-  const escapeCSV = (value) => {
-    if (value === null || value === undefined) {
-      return "";
-    }
-
-    const text = String(value);
-    return `"${text.replace(/"/g, '""')}"`;
-  };
 
   // Convert rows to CSV
   const rows = ratings.map((rating) => [
@@ -64,14 +94,18 @@ const exportWindowRatings = async (window_id) => {
     rating.rated_username,
     rating.stars,
     rating.status,
+    rating.moderation_status,
+    rating.weight,
+    rating.is_effective,
     rating.invalidation_reason,
     rating.invalidated_at,
+    rating.created_at,
   ]);
 
   const csv = [
     headers.map(escapeCSV).join(","),
     ...rows.map((row) => row.map(escapeCSV).join(",")),
-  ].join("\n");
+  ].join("\r\n");
 
   // Add UTF-8 BOM for Excel compatibility
   return {
