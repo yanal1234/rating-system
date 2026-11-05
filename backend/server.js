@@ -15,6 +15,7 @@ const auditLogsRoutes = require("./routes/auditLogs.routes");
 const suspiciousActivitiesRoutes = require("./routes/suspiciousActivities.routes");
 const analyticsRoutes = require("./routes/analytics.routes");
 const exportRoutes = require("./routes/export.routes");
+const usersRoutes = require("./routes/users.routes");
 
 const app = express();
 
@@ -40,6 +41,7 @@ app.use("/api/audit-logs", auditLogsRoutes);
 app.use("/api/suspicious-activities", suspiciousActivitiesRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/export", exportRoutes);
+app.use("/api/users", usersRoutes);
 
 const PORT = process.env.PORT || 5000;
 
