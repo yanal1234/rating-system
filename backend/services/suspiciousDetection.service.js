@@ -18,6 +18,7 @@ const RULES = {
 };
 
 // Save suspicious activity without duplicating an active record
+
 const saveActivity = async ({
   window_id,
   user_id,
@@ -34,9 +35,13 @@ const saveActivity = async ({
        AND user_id = ?
        AND related_user_id <=> ?
        AND activity_type = ?
+       AND (
+         activity_type <> 'group_voting'
+         OR description = ?
+       )
        AND status <> 'dismissed'
      LIMIT 1`,
-    [window_id, user_id, related_user_id, activity_type],
+    [window_id, user_id, related_user_id, activity_type, description],
   );
 
   if (existing.length > 0) {
@@ -45,8 +50,15 @@ const saveActivity = async ({
 
   await db.query(
     `INSERT INTO suspicious_activities
-     (window_id, user_id, related_user_id, rating_id,
-      activity_type, severity, description)
+     (
+       window_id,
+       user_id,
+       related_user_id,
+       rating_id,
+       activity_type,
+       severity,
+       description
+     )
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [
       window_id,
