@@ -1,0 +1,80 @@
+.student-navbar {
+  width: 100%;
+  height: 56px;
+  padding: 0 4%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  background: #08090d;
+  border-bottom: 1px solid #1e2638;
+
+  font-family: "JetBrains Mono", monospace;
+}
+
+/* Brand */
+
+.student-navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+}
+
+.student-navbar-logo {
+  width: 25px;
+  height: 25px;
+  object-fit: contain;
+}
+
+.student-navbar-title {
+  color: #f1f5f9;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Logout */
+
+.student-navbar-logout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+
+  padding: 8px 12px;
+  border: 1px solid #29343b;
+  border-radius: 6px;
+
+  background: transparent;
+  color: #8492a6;
+
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.student-navbar-logout:hover {
+  color: #ff8585;
+  border-color: rgba(255, 133, 133, 0.4);
+  background: rgba(255, 133, 133, 0.06);
+}
+
+/* Responsive */
+
+@media (max-width: 600px) {
+  .student-navbar {
+    padding: 0 3%;
+  }
+
+  .student-navbar-title {
+    font-size: 11px;
+  }
+
+  .student-navbar-logo {
+    width: 22px;
+    height: 22px;
+  }
+}

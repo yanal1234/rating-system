@@ -1,0 +1,10 @@
+.student-layout {
+  min-height: 100vh;
+  width: 100%;
+  background: #0b0f17;
+}
+
+.student-main-content {
+  width: 100%;
+  min-height: calc(100vh - 76px);
+}
