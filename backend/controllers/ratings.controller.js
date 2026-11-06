@@ -2,13 +2,18 @@ const {
   createRating: createRatingService,
   getRatings: getRatingsService,
   invalidateRating: invalidateRatingService,
+  getMyVoteProgress: getMyVoteProgressService,
 } = require("../services/rating.service");
+
+const db = require("../config/db");
 
 const {
   updateRatingModeration: updateRatingModerationService,
 } = require("../services/moderation.service");
 
+// =========================================
 // Create rating
+// =========================================
 const createRating = async (req, res) => {
   try {
     const {
@@ -181,7 +186,9 @@ const createRating = async (req, res) => {
   }
 };
 
+// =========================================
 // Get ratings (Staff only)
+// =========================================
 const getRatings = async (req, res) => {
   try {
     const { window_id } = req.params;
@@ -207,7 +214,9 @@ const getRatings = async (req, res) => {
   }
 };
 
-// Invalidate rating (Staff only)
+// =========================================
+// Invalidate rating
+// =========================================
 const invalidateRating = async (req, res) => {
   try {
     const { id } = req.params;
@@ -258,7 +267,9 @@ const invalidateRating = async (req, res) => {
   }
 };
 
-// Update rating moderation status (Staff only)
+// =========================================
+// Update moderation status
+// =========================================
 const updateRatingModeration = async (req, res) => {
   try {
     const { id } = req.params;
@@ -321,9 +332,177 @@ const updateRatingModeration = async (req, res) => {
   }
 };
 
+// =========================================
+// Get private statistics
+// =========================================
+const getMyRatingStats = async (req, res) => {
+  try {
+    const windowId = Number(req.params.window_id);
+    const userId = Number(req.user.user_id);
+
+    if (!Number.isInteger(windowId) || windowId < 1) {
+      return res.status(400).json({
+        message: "Invalid voting window ID",
+      });
+    }
+
+    const [rows] = await db.query(
+      `
+      SELECT
+        vw.window_id,
+        vw.max_votes,
+        vw.ends_at,
+
+        (
+          SELECT COUNT(*)
+          FROM ratings sent
+          WHERE sent.window_id = vw.window_id
+            AND sent.voter_id = ?
+        ) AS submitted_count,
+
+        COALESCE(received.total, 0) AS received_total,
+        received.average_rating,
+        COALESCE(received.one_star, 0) AS one_star,
+        COALESCE(received.two_stars, 0) AS two_stars,
+        COALESCE(received.three_stars, 0) AS three_stars
+
+      FROM voting_windows vw
+
+      LEFT JOIN (
+        SELECT
+          rated_user_id,
+          window_id,
+          COUNT(*) AS total,
+          ROUND(
+            SUM(stars * weight) / NULLIF(SUM(weight), 0),
+            2
+          ) AS average_rating,
+          SUM(CASE WHEN stars = 1 THEN 1 ELSE 0 END) AS one_star,
+          SUM(CASE WHEN stars = 2 THEN 1 ELSE 0 END) AS two_stars,
+          SUM(CASE WHEN stars = 3 THEN 1 ELSE 0 END) AS three_stars
+        FROM ratings
+        WHERE status = 'valid'
+          AND moderation_status NOT IN (
+            'under_review',
+            'confirmed_abuse'
+          )
+          AND weight > 0
+        GROUP BY rated_user_id, window_id
+      ) received
+        ON received.rated_user_id = ?
+        AND received.window_id = vw.window_id
+
+      WHERE vw.window_id = ?
+      LIMIT 1
+      `,
+      [userId, userId, windowId],
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({
+        message: "Voting window not found",
+      });
+    }
+
+    const stats = rows[0];
+
+    const submitted = Number(stats.submitted_count);
+    const maxVotes = Number(stats.max_votes);
+    const receivedTotal = Number(stats.received_total);
+
+    const oneStar = Number(stats.one_star);
+    const twoStars = Number(stats.two_stars);
+    const threeStars = Number(stats.three_stars);
+
+    return res.status(200).json({
+      message: "Student rating statistics retrieved successfully",
+      stats: {
+        window_id: Number(stats.window_id),
+        ends_at: stats.ends_at,
+        submitted_count: submitted,
+        max_votes: maxVotes,
+        remaining_votes: Math.max(0, maxVotes - submitted),
+        progress_percentage:
+          maxVotes > 0
+            ? Math.min(100, Math.round((submitted / maxVotes) * 100))
+            : 0,
+        received_total: receivedTotal,
+        average_rating:
+          stats.average_rating == null ? null : Number(stats.average_rating),
+        distribution: {
+          one_star: {
+            count: oneStar,
+            percentage:
+              receivedTotal > 0
+                ? Math.round((oneStar / receivedTotal) * 100)
+                : 0,
+          },
+          two_stars: {
+            count: twoStars,
+            percentage:
+              receivedTotal > 0
+                ? Math.round((twoStars / receivedTotal) * 100)
+                : 0,
+          },
+          three_stars: {
+            count: threeStars,
+            percentage:
+              receivedTotal > 0
+                ? Math.round((threeStars / receivedTotal) * 100)
+                : 0,
+          },
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Get student rating stats error:", error);
+
+    return res.status(500).json({
+      message: "Failed to retrieve student rating statistics",
+    });
+  }
+};
+
+// =========================================
+// Get my vote progress
+// =========================================
+const getMyVoteProgress = async (req, res) => {
+  try {
+    const windowId = Number(req.query.window_id);
+    const userId = Number(req.user.user_id);
+
+    if (!Number.isInteger(windowId) || windowId <= 0) {
+      return res.status(400).json({
+        message: "Valid window_id is required",
+      });
+    }
+
+    const progress = await getMyVoteProgressService(windowId, userId);
+
+    if (!progress) {
+      return res.status(404).json({
+        message: "Voting window not found",
+      });
+    }
+
+    return res.status(200).json({
+      message: "Voting progress retrieved successfully",
+      progress,
+    });
+  } catch (error) {
+    console.error("Get my vote progress error:", error);
+
+    return res.status(500).json({
+      message: "Failed to retrieve voting progress",
+    });
+  }
+};
+
 module.exports = {
   createRating,
   getRatings,
   invalidateRating,
   updateRatingModeration,
+  getMyRatingStats,
+  getMyVoteProgress,
 };

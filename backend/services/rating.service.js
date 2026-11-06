@@ -15,14 +15,15 @@ const INTERACTION_TYPES = [
   "other",
 ];
 
-// Helper: create an error with an HTTP status code
 const createError = (message, statusCode = 400) => {
   const error = new Error(message);
   error.statusCode = statusCode;
   return error;
 };
 
+// =========================================
 // Create rating
+// =========================================
 const createRating = async ({
   window_id,
   voter_id,
@@ -37,7 +38,6 @@ const createRating = async ({
   let committed = false;
 
   try {
-    // Validate IDs
     if (
       !Number.isInteger(Number(window_id)) ||
       Number(window_id) < 1 ||
@@ -49,7 +49,6 @@ const createRating = async ({
       throw createError("Invalid user or voting window ID");
     }
 
-    // Validate stars
     if (
       !Number.isInteger(Number(stars)) ||
       Number(stars) < 1 ||
@@ -58,17 +57,14 @@ const createRating = async ({
       throw createError("Stars must be between 1 and 3");
     }
 
-    // Prevent self-rating
     if (Number(voter_id) === Number(rated_user_id)) {
       throw createError("You cannot rate yourself");
     }
 
-    // Validate interaction type
     if (!INTERACTION_TYPES.includes(interaction_type)) {
       throw createError("Invalid interaction type");
     }
 
-    // Validate interaction details
     if (
       interaction_details !== undefined &&
       interaction_details !== null &&
@@ -82,7 +78,6 @@ const createRating = async ({
         ? interaction_details.trim()
         : null;
 
-    // Validate feedback
     if (
       feedback !== undefined &&
       feedback !== null &&
@@ -94,12 +89,10 @@ const createRating = async ({
     const normalizedFeedback =
       typeof feedback === "string" ? feedback.trim() : "";
 
-    // Validate labels
     if (!Array.isArray(labels)) {
       throw createError("Labels must be an array");
     }
 
-    // One-star ratings require feedback and at least one flag
     if (Number(stars) === 1) {
       if (!normalizedFeedback) {
         throw createError("Written feedback is required for a one-star rating");
@@ -112,7 +105,6 @@ const createRating = async ({
       }
     }
 
-    // Validate label structure
     const labelIds = [];
 
     for (const label of labels) {
@@ -136,7 +128,6 @@ const createRating = async ({
       labelIds.push(labelId);
     }
 
-    // Prevent duplicate labels
     if (new Set(labelIds).size !== labelIds.length) {
       throw createError("Duplicate labels are not allowed");
     }
@@ -144,7 +135,6 @@ const createRating = async ({
     connection = await db.getConnection();
     await connection.beginTransaction();
 
-    // Check voting window
     const [windows] = await connection.query(
       `SELECT window_id
        FROM voting_windows
@@ -160,7 +150,6 @@ const createRating = async ({
       throw createError("Voting window not found or not currently active");
     }
 
-    // Check voter and rated user participation
     const [participants] = await connection.query(
       `SELECT user_id
        FROM rating_participants
@@ -176,7 +165,6 @@ const createRating = async ({
       );
     }
 
-    // Validate labels against active labels and allowed star levels
     if (labels.length > 0) {
       const placeholders = labelIds.map(() => "?").join(",");
 
@@ -205,10 +193,8 @@ const createRating = async ({
       }
     }
 
-    // Initialize credibility record
     await initializeUserCredibility(voter_id, connection);
 
-    // Get current weight based on voter's credibility
     const [credibilityRows] = await connection.query(
       `SELECT current_weight
        FROM user_credibility
@@ -223,7 +209,6 @@ const createRating = async ({
 
     const currentWeight = Number(credibilityRows[0].current_weight);
 
-    // Insert rating
     const [ratingResult] = await connection.query(
       `INSERT INTO ratings (
          window_id,
@@ -252,7 +237,6 @@ const createRating = async ({
 
     const rating_id = ratingResult.insertId;
 
-    // Insert rating labels
     if (labels.length > 0) {
       const labelValues = labels.map((label) => [
         rating_id,
@@ -268,7 +252,6 @@ const createRating = async ({
       );
     }
 
-    // Increase total ratings submitted by this user
     await connection.query(
       `UPDATE user_credibility
        SET total_ratings = total_ratings + 1
@@ -276,7 +259,6 @@ const createRating = async ({
       [voter_id],
     );
 
-    // Insert audit log
     await connection.query(
       `INSERT INTO rating_audit_logs (
          rating_id,
@@ -304,15 +286,12 @@ const createRating = async ({
       ],
     );
 
-    // Commit rating transaction
     await connection.commit();
     committed = true;
 
-    // Release connection before running detection
     connection.release();
     connection = null;
 
-    // Run suspicious activity detection after saving the rating
     try {
       await detectSuspiciousActivities(Number(window_id));
     } catch (detectionError) {
@@ -333,7 +312,9 @@ const createRating = async ({
   }
 };
 
-// Get ratings for staff moderation
+// =========================================
+// Get ratings for staff
+// =========================================
 const getRatings = async (window_id) => {
   const [ratings] = await db.query(
     `SELECT
@@ -367,7 +348,9 @@ const getRatings = async (window_id) => {
   return ratings;
 };
 
+// =========================================
 // Invalidate rating
+// =========================================
 const invalidateRating = async ({
   rating_id,
   performed_by,
@@ -381,7 +364,6 @@ const invalidateRating = async ({
     connection = await db.getConnection();
     await connection.beginTransaction();
 
-    // Get and lock current rating
     const [ratings] = await connection.query(
       `SELECT
          rating_id,
@@ -402,7 +384,6 @@ const invalidateRating = async ({
     const previousRating = ratings[0];
     voter_id = previousRating.voter_id;
 
-    // Invalidate rating and remove its mathematical influence
     await connection.query(
       `UPDATE ratings
        SET status = 'invalid',
@@ -414,7 +395,6 @@ const invalidateRating = async ({
       [performed_by, invalidation_reason, rating_id],
     );
 
-    // Record audit log
     await connection.query(
       `INSERT INTO rating_audit_logs (
          rating_id,
@@ -441,19 +421,15 @@ const invalidateRating = async ({
     await connection.commit();
     committed = true;
 
-    // Release connection before recalculating credibility
     connection.release();
     connection = null;
 
-    // Recalculate credibility because an invalidated confirmed-abuse
-    // rating must no longer contribute to the credibility penalty.
     let credibilityUpdated = true;
 
     try {
       await recalculateUserCredibility(voter_id, performed_by);
     } catch (credibilityError) {
       credibilityUpdated = false;
-
       console.error(
         "Credibility recalculation failed after invalidation:",
         credibilityError,
@@ -477,8 +453,42 @@ const invalidateRating = async ({
   }
 };
 
+// =========================================
+// Get current student's voting progress
+// =========================================
+const getMyVoteProgress = async (windowId, userId) => {
+  const [rows] = await db.query(
+    `SELECT
+       vw.window_id,
+       vw.max_votes,
+       COUNT(r.rating_id) AS votes_cast
+     FROM voting_windows vw
+     LEFT JOIN ratings r
+       ON r.window_id = vw.window_id
+       AND r.voter_id = ?
+     WHERE vw.window_id = ?
+     GROUP BY vw.window_id, vw.max_votes`,
+    [userId, windowId],
+  );
+
+  if (!rows.length) {
+    return null;
+  }
+
+  const votesCast = Number(rows[0].votes_cast);
+  const maxVotes = Number(rows[0].max_votes);
+
+  return {
+    window_id: Number(rows[0].window_id),
+    votes_cast: votesCast,
+    max_votes: maxVotes,
+    remaining_votes: Math.max(0, maxVotes - votesCast),
+  };
+};
+
 module.exports = {
   createRating,
   getRatings,
   invalidateRating,
+  getMyVoteProgress,
 };

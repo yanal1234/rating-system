@@ -5,18 +5,21 @@ const {
   createVotingWindow,
   getAllVotingWindows,
   getVotingWindowById,
+  getActiveVotingWindow,
   updateVotingWindow,
   deleteVotingWindow,
 } = require("../controllers/votingWindows.controller");
 
 const { verifyToken, verifyStaff } = require("../middleware/auth.middleware");
 
-router.use(verifyToken, verifyStaff);
+// Active window: Any authenticated user
+router.get("/active", verifyToken, getActiveVotingWindow);
 
-router.post("/", createVotingWindow);
-router.get("/", getAllVotingWindows);
-router.get("/:id", getVotingWindowById);
-router.put("/:id", updateVotingWindow);
-router.delete("/:id", deleteVotingWindow);
+// Staff only routes
+router.post("/", verifyToken, verifyStaff, createVotingWindow);
+router.get("/", verifyToken, verifyStaff, getAllVotingWindows);
+router.get("/:id", verifyToken, verifyStaff, getVotingWindowById);
+router.put("/:id", verifyToken, verifyStaff, updateVotingWindow);
+router.delete("/:id", verifyToken, verifyStaff, deleteVotingWindow);
 
 module.exports = router;

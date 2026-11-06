@@ -44,6 +44,28 @@ const getVotingWindowById = async (id) => {
   return windows[0] || null;
 };
 
+// Get currently active voting window
+const getActiveVotingWindow = async () => {
+  const [windows] = await db.query(
+    `SELECT
+       window_id,
+       window_name,
+       starts_at,
+       ends_at,
+       min_votes,
+       max_votes,
+       status
+     FROM voting_windows
+     WHERE status = 'published'
+       AND starts_at <= NOW()
+       AND ends_at >= NOW()
+     ORDER BY starts_at DESC
+     LIMIT 1`,
+  );
+
+  return windows[0] || null;
+};
+
 // Update voting window
 const updateVotingWindow = async (id, updated) => {
   let connection;
@@ -196,6 +218,7 @@ module.exports = {
   createVotingWindow,
   getAllVotingWindows,
   getVotingWindowById,
+  getActiveVotingWindow,
   updateVotingWindow,
   deleteVotingWindow,
 };

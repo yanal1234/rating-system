@@ -2,6 +2,7 @@ const {
   createVotingWindow: createVotingWindowService,
   getAllVotingWindows: getAllVotingWindowsService,
   getVotingWindowById: getVotingWindowByIdService,
+  getActiveVotingWindow: getActiveVotingWindowService,
   updateVotingWindow: updateVotingWindowService,
   deleteVotingWindow: deleteVotingWindowService,
 } = require("../services/votingWindow.service");
@@ -121,6 +122,27 @@ const getVotingWindowById = async (req, res) => {
 
     return res.status(500).json({
       message: "Failed to retrieve voting window",
+    });
+  }
+};
+
+// Get active voting window (Authenticated users)
+const getActiveVotingWindow = async (req, res) => {
+  try {
+    const window = await getActiveVotingWindowService();
+
+    return res.status(200).json({
+      message: window
+        ? "Active voting window retrieved successfully"
+        : "There is no active voting window",
+      window,
+      is_active: Boolean(window),
+    });
+  } catch (error) {
+    console.error("Get active voting window error:", error);
+
+    return res.status(500).json({
+      message: "Failed to retrieve active voting window",
     });
   }
 };
@@ -257,6 +279,7 @@ module.exports = {
   createVotingWindow,
   getAllVotingWindows,
   getVotingWindowById,
+  getActiveVotingWindow,
   updateVotingWindow,
   deleteVotingWindow,
 };

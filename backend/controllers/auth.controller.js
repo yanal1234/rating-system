@@ -62,10 +62,13 @@ const login = async (req, res) => {
       user: {
         user_id: user.user_id,
         username: user.username,
+        full_name: user.full_name,
         role: user.role,
       },
     });
   } catch (error) {
+    console.error("Login error:", error);
+
     return res.status(500).json({
       message: "Internal server error",
     });
@@ -118,6 +121,8 @@ const refreshToken = async (req, res) => {
       message: "Access token refreshed",
     });
   } catch (error) {
+    console.error("Refresh token error:", error);
+
     return res.status(401).json({
       message: "Invalid refresh token",
     });
@@ -127,9 +132,31 @@ const refreshToken = async (req, res) => {
 const getMe = async (req, res) => {
   try {
     const [users] = await db.query(
-      `SELECT user_id, username, email, role
-       FROM users
-       WHERE user_id = ?`,
+      `SELECT
+          u.user_id,
+          u.username,
+          u.full_name,
+          u.bio,
+          u.email,
+          u.role,
+          u.profile_picture,
+          (
+            SELECT COALESCE(
+              JSON_ARRAYAGG(
+                JSON_OBJECT(
+                  'skill_id', s.skill_id,
+                  'name', s.skill_name
+                )
+              ),
+              JSON_ARRAY()
+            )
+            FROM user_skills us
+            INNER JOIN skills s
+              ON s.skill_id = us.skill_id
+            WHERE us.user_id = u.user_id
+          ) AS skills
+       FROM users u
+       WHERE u.user_id = ?`,
       [req.user.user_id],
     );
 
@@ -139,10 +166,24 @@ const getMe = async (req, res) => {
       });
     }
 
+    const user = users[0];
+
+    if (typeof user.skills === "string") {
+      try {
+        user.skills = JSON.parse(user.skills);
+      } catch {
+        user.skills = [];
+      }
+    }
+
+    user.skills = Array.isArray(user.skills) ? user.skills : [];
+
     return res.status(200).json({
-      user: users[0],
+      user,
     });
   } catch (error) {
+    console.error("Get current user error:", error);
+
     return res.status(500).json({
       message: "Internal server error",
     });

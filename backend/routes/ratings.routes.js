@@ -6,20 +6,20 @@ const {
   getRatings,
   invalidateRating,
   updateRatingModeration,
+  getMyRatingStats,
+  getMyVoteProgress,
 } = require("../controllers/ratings.controller");
 
 const { verifyToken, verifyStaff } = require("../middleware/auth.middleware");
 
-// Create rating
+// Student routes
 router.post("/", verifyToken, createRating);
+router.get("/my-progress", verifyToken, getMyVoteProgress);
+router.get("/my-stats/:window_id", verifyToken, getMyRatingStats);
 
-// Get ratings (Staff only)
+// Staff routes
 router.get("/window/:window_id", verifyToken, verifyStaff, getRatings);
-
-// Invalidate rating (Staff only)
 router.patch("/:id/invalidate", verifyToken, verifyStaff, invalidateRating);
-
-// Update moderation status (Staff only)
 router.patch(
   "/:id/moderation",
   verifyToken,
