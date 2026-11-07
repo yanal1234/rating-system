@@ -3,6 +3,7 @@ const {
   getAllVotingWindows: getAllVotingWindowsService,
   getVotingWindowById: getVotingWindowByIdService,
   getActiveVotingWindow: getActiveVotingWindowService,
+  getStudentVotingWindows: getStudentVotingWindowsService,
   updateVotingWindow: updateVotingWindowService,
   deleteVotingWindow: deleteVotingWindowService,
 } = require("../services/votingWindow.service");
@@ -147,6 +148,28 @@ const getActiveVotingWindow = async (req, res) => {
   }
 };
 
+// Get active voting windows for the logged-in student
+const getStudentVotingWindows = async (req, res) => {
+  try {
+    const userId = req.user.user_id;
+
+    const windows = await getStudentVotingWindowsService(userId);
+
+    return res.status(200).json({
+      message: windows.length
+        ? "Student voting windows retrieved successfully"
+        : "No active voting windows available",
+      windows,
+    });
+  } catch (error) {
+    console.error("Get student voting windows error:", error);
+
+    return res.status(500).json({
+      message: "Failed to retrieve student voting windows",
+    });
+  }
+};
+
 // Update voting window (Staff only)
 const updateVotingWindow = async (req, res) => {
   try {
@@ -280,6 +303,7 @@ module.exports = {
   getAllVotingWindows,
   getVotingWindowById,
   getActiveVotingWindow,
+  getStudentVotingWindows,
   updateVotingWindow,
   deleteVotingWindow,
 };
