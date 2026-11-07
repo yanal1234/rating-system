@@ -21,7 +21,7 @@ const createVotingWindow = async (windowData) => {
   return result.insertId;
 };
 
-// Get all voting windows
+// Get all voting windows (Staff)
 const getAllVotingWindows = async () => {
   const [windows] = await db.query(
     `SELECT *
@@ -32,7 +32,7 @@ const getAllVotingWindows = async () => {
   return windows;
 };
 
-// Get voting window by ID
+// Get voting window by ID (Staff)
 const getVotingWindowById = async (id) => {
   const [windows] = await db.query(
     `SELECT *
@@ -64,6 +64,72 @@ const getActiveVotingWindow = async () => {
   );
 
   return windows[0] || null;
+};
+
+// Get all active voting windows available to the current student
+const getStudentVotingWindows = async (userId) => {
+  const [windows] = await db.query(
+    `SELECT
+       vw.window_id,
+       vw.window_name,
+       vw.starts_at,
+       vw.ends_at,
+       vw.min_votes,
+       vw.max_votes,
+       vw.status,
+
+       (
+         SELECT COUNT(*)
+         FROM rating_participants rp
+         INNER JOIN users u
+           ON u.user_id = rp.user_id
+         WHERE rp.window_id = vw.window_id
+           AND u.role = 'student'
+           AND u.is_active = 1
+           AND u.user_id != ?
+       ) AS eligible_students,
+
+       (
+         SELECT COUNT(*)
+         FROM ratings r
+         WHERE r.window_id = vw.window_id
+           AND r.voter_id = ?
+           AND r.status = 'valid'
+       ) AS votes_cast
+
+     FROM voting_windows vw
+
+     INNER JOIN rating_participants own
+       ON own.window_id = vw.window_id
+      AND own.user_id = ?
+
+     WHERE vw.status = 'published'
+       AND vw.starts_at <= NOW()
+       AND vw.ends_at >= NOW()
+
+     ORDER BY vw.starts_at DESC`,
+    [userId, userId, userId],
+  );
+
+  return windows.map((window) => {
+    const eligibleStudents = Number(window.eligible_students);
+    const votesCast = Number(window.votes_cast);
+    const maxVotes = Number(window.max_votes);
+
+    const targetVotes = Math.min(maxVotes, eligibleStudents);
+    const remainingVotes = Math.max(0, targetVotes - votesCast);
+
+    return {
+      ...window,
+      min_votes: Number(window.min_votes),
+      max_votes: maxVotes,
+      eligible_students: eligibleStudents,
+      votes_cast: votesCast,
+      target_votes: targetVotes,
+      remaining_votes: remainingVotes,
+      is_completed: votesCast >= targetVotes,
+    };
+  });
 };
 
 // Update voting window
@@ -219,6 +285,7 @@ module.exports = {
   getAllVotingWindows,
   getVotingWindowById,
   getActiveVotingWindow,
+  getStudentVotingWindows,
   updateVotingWindow,
   deleteVotingWindow,
 };
