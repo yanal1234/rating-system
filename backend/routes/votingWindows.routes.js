@@ -6,16 +6,32 @@ const {
   getAllVotingWindows,
   getVotingWindowById,
   getActiveVotingWindow,
+  getStudentVotingWindows,
   updateVotingWindow,
   deleteVotingWindow,
 } = require("../controllers/votingWindows.controller");
 
 const { verifyToken, verifyStaff } = require("../middleware/auth.middleware");
 
-// Active window: Any authenticated user
 router.get("/active", verifyToken, getActiveVotingWindow);
 
-// Staff only routes
+// Student: get all active windows assigned to the logged-in student
+router.get(
+  "/student",
+  verifyToken,
+  (req, res, next) => {
+    if (req.user.role !== "student") {
+      return res.status(403).json({
+        message: "Access denied. Students only.",
+      });
+    }
+
+    next();
+  },
+  getStudentVotingWindows,
+);
+
+// Staff routes
 router.post("/", verifyToken, verifyStaff, createVotingWindow);
 router.get("/", verifyToken, verifyStaff, getAllVotingWindows);
 router.get("/:id", verifyToken, verifyStaff, getVotingWindowById);
