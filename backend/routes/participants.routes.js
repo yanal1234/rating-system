@@ -6,6 +6,7 @@ const {
   getParticipants,
   getEligibleParticipants,
   removeParticipant,
+  getParticipationStats,
 } = require("../controllers/participants.controller");
 
 const { verifyToken, verifyStaff } = require("../middleware/auth.middleware");
@@ -26,11 +27,19 @@ router.get(
   getEligibleParticipants,
 );
 
-router.get("/eligible/:window_id", verifyToken, getEligibleParticipants);
+// Staff: get participation statistics
+router.get(
+  "/participation/:window_id",
+  verifyToken,
+  verifyStaff,
+  getParticipationStats,
+);
 
 // Staff: manage participants
 router.post("/", verifyToken, verifyStaff, addParticipant);
+
 router.get("/:window_id", verifyToken, verifyStaff, getParticipants);
+
 router.delete(
   "/:window_id/:user_id",
   verifyToken,
