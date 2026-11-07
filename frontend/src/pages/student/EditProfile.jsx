@@ -263,7 +263,7 @@ export default function EditProfile() {
           )}
 
           <div className="ep-actions">
-            <Link to="/student/profile" className="ep-cancel">
+            <Link to="/student/dashboard" className="ep-cancel">
               Cancel
             </Link>
 
