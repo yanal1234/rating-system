@@ -7,6 +7,89 @@ automatically detects suspicious voting patterns (group voting, retaliation,
 closed cliques, and more) so that staff can review them.
 
 ---
+## Screenshots & Preview
+
+<details>
+<summary>📸 <b>Click to expand all app screenshots</b></summary>
+
+### Authentication
+![Login Page](docs/login.png)
+*Login interface for students and staff with JWT credentials.*
+
+---
+
+### Student Experience
+
+#### Dashboard & Progress
+<p align="center">
+  <img src="docs/student_Dashboard1.png" width="49%" alt="Student Dashboard Overview" />
+  <img src="docs/student_Dashboard2.png" width="49%" alt="Student Personal Statistics" />
+</p>
+
+* **Left:** Active voting window overview with peer search grid and rating action buttons.
+* **Right:** Personal stats panel showing total votes cast, remaining votes, average rating, and star breakdown.
+
+#### Peer Rating Flow
+<p align="center">
+  <img src="docs/student_Rating1.png" width="49%" alt="Rating Star & Flag Selection" />
+  <img src="docs/student_Rating2.png" width="49%" alt="Rating Review & Submission" />
+</p>
+
+* **Left:** Interactive star rating selection (1-3 stars) alongside flag/label assignments.
+* **Right:** Written feedback confirmation step (mandatory for 1-star ratings) prior to final submission.
+
+---
+
+### Staff Management & Moderation
+
+#### System Overview & Analytics
+<p align="center">
+  <img src="docs/staff_overflow1.png" width="49%" alt="Staff Overview Metrics" />
+  <img src="docs/staff_overflow2.png" width="49%" alt="Staff Overview Graphs" />
+</p>
+
+* Overview metrics displaying active windows, overall completion rates, total ratings, and open flags.
+
+<p align="center">
+  <img src="docs/staff_Analytics1.png" width="49%" alt="System Analytics" />
+  <img src="docs/staff_Analytics2.png" width="49%" alt="Per-Window Analytics" />
+</p>
+
+* Deep dive into rating distributions, daily engagement trends, and exportable JSON/CSV analytics.
+
+#### Voting Windows & Participation
+<p align="center">
+  <img src="docs/staff_VotingWindows1.png" width="49%" alt="Voting Windows Management" />
+  <img src="docs/staff_Participation1.png" width="49%" alt="Participation Tracker List" />
+</p>
+
+* Management panel to create, publish, or modify voting windows, alongside per-user participation status tracking (`staff_Participation2.png`).
+
+#### Abuse Center (Suspicious Activity Detection)
+<p align="center">
+  <img src="docs/staff_SuspiciousActivities1.png" width="49%" alt="Suspicious Activity Cases" />
+  <img src="docs/staff_SuspiciousActivities2.png" width="49%" alt="Suspicious Activity Case Details" />
+</p>
+
+* Automated detection grid flagging suspicious voting patterns (group voting, retaliatory rates, closed cliques) with severity filters and review controls.
+
+#### Ratings Management, Labels & Audit Logs
+<p align="center">
+  <img src="docs/staff_RatingsManagement1.png" width="49%" alt="Ratings Management Table" />
+  <img src="docs/sfatt_ManageLabels1.png" width="49%" alt="Manage Rating Labels" />
+</p>
+
+* **Left:** Ratings moderation view to filter, invalidate, or adjust score statuses (`staff_RatingsManagement2.png`).
+* **Right:** Flag/label catalog management linked to star rating requirements.
+
+<p align="center">
+  <img src="docs/staff_AuditLogs1.png" width="49%" alt="System Audit Logs" />
+  <img src="docs/staff_AuditLogs2.png" width="49%" alt="Audit Log Details" />
+</p>
+
+* Detailed system action log tracking before-and-after states for moderation actions.
+
+</details>
 
 ## Features
 
